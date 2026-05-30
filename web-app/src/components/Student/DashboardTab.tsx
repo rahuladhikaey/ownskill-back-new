@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Target, CheckCircle2, BarChart3, Sparkles, Timer, FlaskConical, BookOpenText,
-  ChevronRight, TrendingUp, TrendingDown, Minus, Flame, Trophy, Zap, Clock
+  ChevronRight, TrendingUp, TrendingDown, Minus, Flame, Trophy, Zap, Clock, Globe
 } from 'lucide-react';
 
 export function DashboardTab() {
@@ -298,6 +298,30 @@ export function DashboardTab() {
           </div>
         )}
       </div>
+      
+      {/* ═══════ EXTERNAL WEBSITE LINK ═══════ */}
+      <button 
+        onClick={() => {
+          if (window.OwnSkillAndroid && typeof window.OwnSkillAndroid.openUrl === 'function') {
+            window.OwnSkillAndroid.openUrl("https://ownskill-back-new.onrender.com");
+          } else {
+            window.open("https://ownskill-back-new.onrender.com", "_blank");
+          }
+        }}
+        className="glass-panel p-4 flex items-center justify-between group active:scale-[0.98] transition-all bg-gradient-to-r from-emerald-500/20 to-teal-500/5 border border-emerald-500/20 cursor-pointer w-full mt-4 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+            <Globe className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="text-left">
+            <h3 className="text-sm font-extrabold text-white tracking-wide">Visit Website</h3>
+            <p className="text-[10px] text-emerald-400 font-semibold mt-0.5">ownskill-back-new.onrender.com</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
+      </button>
+      
     </div>
   );
 }
