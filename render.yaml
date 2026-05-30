@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ownskill-web-app
+    env: static
+    # Since your web app code is in the web-app directory:
+    rootDir: web-app
+    # The build command to run
+    buildCommand: npm install && npm run build
+    # Your vite.config.ts outputs to ../app/src/main/assets/www
+    staticPublishPath: ../app/src/main/assets/www
+    
+    # Optional: Automatically redirect all unknown routes to index.html 
+    # (Crucial for React apps with routing so refreshing doesn't break)
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
