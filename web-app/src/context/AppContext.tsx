@@ -63,6 +63,54 @@ export interface LiveTestQuestion {
   isLivePractice?: boolean;
 }
 
+export interface ArchiveDppQuestion {
+  archive_id: number;
+  id: string;
+  topic_id: string;
+  type: 'MCQ' | 'MSQ' | 'AssertionReason' | 'MatrixMatch';
+  question: string;
+  options: string[];
+  answer: string | number;
+  explanation: string;
+  tags?: string[];
+  created_at: string;
+  archived_at: string;
+}
+
+export interface ArchiveLiveExam {
+  archive_id: number;
+  id: string;
+  title: string;
+  description?: string;
+  duration_minutes?: number;
+  is_active?: boolean;
+  pdf_url?: string;
+  scheduled_start?: string;
+  status?: string;
+  subject_id?: string;
+  chapter_id?: string;
+  created_at?: string;
+  archived_at?: string;
+}
+
+export interface ArchiveLiveTestQuestion {
+  archive_id: number;
+  id: string;
+  exam_id: string;
+  type?: 'MCQ' | 'SAQ';
+  question: string;
+  options: string[];
+  correct_answer: string | number;
+  explanation?: string;
+  marks: number;
+  question_order: number;
+  tags?: string[];
+  pdf_url?: string;
+  is_live_practice?: boolean;
+  created_at?: string;
+  archived_at?: string;
+}
+
 export interface User {
   name: string;
   role?: string;
@@ -155,7 +203,19 @@ interface AppContextType {
   usersList: User[];
   storageFiles: string[];
   logs: string[];
-  
+
+  archiveDppQuestions: ArchiveDppQuestion[];
+  archiveLiveExams: ArchiveLiveExam[];
+  archiveLiveTestQuestions: ArchiveLiveTestQuestion[];
+  softDeletedDppQuestions: DppQuestion[];
+  softDeletedLiveExams: LiveExam[];
+  softDeletedLiveTestQuestions: LiveTestQuestion[];
+
+  restoreDppQuestion: (item: any, isHardDeleted: boolean) => Promise<void>;
+  restoreLiveExam: (item: any, isHardDeleted: boolean) => Promise<void>;
+  restoreLiveTestQuestion: (item: any, isHardDeleted: boolean) => Promise<void>;
+  fetchArchives: () => Promise<void>;
+
   // State Mutators
   loginUser: (username: string) => void;
   logoutUser: () => void;
@@ -163,7 +223,7 @@ interface AppContextType {
   addCoinsAndXp: (coins: number, xp: number) => void;
   toggleTheme: (isDark: boolean) => void;
   setAccentColor: (hslStr: string) => void;
-  
+
   // Fake Data Management
   addAchievement: (achievement: Omit<Achievement, 'id'>) => void;
   deleteAchievement: (id: string) => void;
@@ -172,7 +232,7 @@ interface AppContextType {
   addPerformanceGraph: (graph: Omit<GraphData, 'id'>) => void;
   deletePerformanceGraph: (id: string) => void;
   initializeStudentData: () => void;
-  
+
   // CMS CRUD handlers
   addSubject: (name: string) => void;
   deleteSubject: (id: string) => void;
@@ -228,7 +288,7 @@ const defaultState: AppState = {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const bridge = useAndroidBridge();
-  
+
   // Core State
   const [state, setState] = useState<AppState>(() => {
     const cached = localStorage.getItem('ownskill_react_state');
@@ -236,8 +296,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = JSON.parse(cached);
         // Reset fake data fields to 0 to ensure clean state
-        return { 
-          ...defaultState, 
+        return {
+          ...defaultState,
           ...parsed,
           streak: 0,
           coins: 0,
@@ -265,33 +325,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', session.user.id)
               .single();
-              
-              if (profileData && !error) {
-                localStorage.setItem('user_profile', JSON.stringify(profileData));
-                setState(prev => ({
-                  ...prev,
-                  username: profileData.username,
-                  coins: profileData.coins,
-                  xp: profileData.xp,
-                  streak: profileData.streak,
-                  userGoal: profileData.user_goal,
-                  userSubjects: profileData.user_subjects || [],
-                  accentTheme: profileData.accent_theme,
-                  isDarkMode: profileData.is_dark_mode,
-                  tasksCompleted: profileData.tasks_completed || [],
-                  completedDppChapters: profileData.completed_dpp_topics || [],
-                  unlockedThemes: profileData.unlocked_themes || [],
-                  savedArticles: profileData.saved_articles || [],
-                  savedFormulas: profileData.saved_formulas || [],
-                }));
-              }
+
+            if (profileData && !error) {
+              localStorage.setItem('user_profile', JSON.stringify(profileData));
+              setState(prev => ({
+                ...prev,
+                username: profileData.username,
+                coins: profileData.coins,
+                xp: profileData.xp,
+                streak: profileData.streak,
+                userGoal: profileData.user_goal,
+                userSubjects: profileData.user_subjects || [],
+                accentTheme: profileData.accent_theme,
+                isDarkMode: profileData.is_dark_mode,
+                tasksCompleted: profileData.tasks_completed || [],
+                completedDppChapters: profileData.completed_dpp_topics || [],
+                unlockedThemes: profileData.unlocked_themes || [],
+                savedArticles: profileData.saved_articles || [],
+                savedFormulas: profileData.saved_formulas || [],
+              }));
             }
+          }
         } catch (err) {
           console.error('Failed to securely load user profile:', err);
         }
       }
     };
-    
+
     loadUserProfile();
   }, []);
 
@@ -305,25 +365,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .from('user_profiles')
             .update({
               username: currentState.username,
-                coins: currentState.coins,
-                xp: currentState.xp,
-                streak: currentState.streak,
-                user_goal: currentState.userGoal,
-                user_subjects: currentState.userSubjects,
-                accent_theme: currentState.accentTheme,
-                is_dark_mode: currentState.isDarkMode,
-                tasks_completed: currentState.tasksCompleted,
-                completed_dpp_topics: currentState.completedDppChapters,
-                unlocked_themes: currentState.unlockedThemes,
-                saved_articles: currentState.savedArticles,
+              coins: currentState.coins,
+              xp: currentState.xp,
+              streak: currentState.streak,
+              user_goal: currentState.userGoal,
+              user_subjects: currentState.userSubjects,
+              accent_theme: currentState.accentTheme,
+              is_dark_mode: currentState.isDarkMode,
+              tasks_completed: currentState.tasksCompleted,
+              completed_dpp_topics: currentState.completedDppChapters,
+              unlocked_themes: currentState.unlockedThemes,
+              saved_articles: currentState.savedArticles,
               saved_formulas: currentState.savedFormulas,
               is_maintenance_mode: currentState.isMaintenanceMode
             })
             .eq('id', session.user.id);
-            
+
           if (error) {
             console.error('Failed to securely sync profile:', error);
-            }
+          }
         }
       } catch (err) {
         console.error('Exception securely syncing profile:', err);
@@ -351,6 +411,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [usersList, setUsersList] = useState<User[]>(() => parseSafeArray('ownskill_users', []));
   const [storageFiles, setStorageFiles] = useState<string[]>(() => parseSafeArray('ownskill_storage', []));
   const [logs, setLogs] = useState<string[]>(() => parseSafeArray('ownskill_logs', ["[SYSTEM] Database dynamic binding initialized successfully."]));
+
+  const [softDeletedDppQuestions, setSoftDeletedDppQuestions] = useState<DppQuestion[]>([]);
+  const [archiveDppQuestions, setArchiveDppQuestions] = useState<ArchiveDppQuestion[]>([]);
+  const [softDeletedLiveExams, setSoftDeletedLiveExams] = useState<LiveExam[]>([]);
+  const [archiveLiveExams, setArchiveLiveExams] = useState<ArchiveLiveExam[]>([]);
+  const [softDeletedLiveTestQuestions, setSoftDeletedLiveTestQuestions] = useState<LiveTestQuestion[]>([]);
+  const [archiveLiveTestQuestions, setArchiveLiveTestQuestions] = useState<ArchiveLiveTestQuestion[]>([]);
 
   // Persists local caches on state alterations
   useEffect(() => {
@@ -398,7 +465,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty('--accent-color', state.accentTheme);
     const match = state.accentTheme.match(/\d+/);
     const h = match ? parseInt(match[0]) : 262;
-    document.documentElement.style.setProperty('--accent-color-rgb', 
+    document.documentElement.style.setProperty('--accent-color-rgb',
       h === 262 ? "108, 38, 242" : h === 142 ? "16, 185, 129" : h === 24 ? "245, 158, 11" : "59, 130, 246"
     );
   }, [state.accentTheme]);
@@ -416,123 +483,228 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Note: Real-time sync via useEffect removed as it now syncs directly inside updateState.
 
+  const fetchDatabaseData = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      // 1. Subjects
+      const { data: subs, error: errSubs } = await supabase.from('subjects').select('*');
+      if (!errSubs && subs) {
+        setSubjects(subs);
+        localStorage.setItem('ownskill_subjects', JSON.stringify(subs));
+      }
+
+      // 2. Chapters
+      const { data: chaps, error: errChaps } = await supabase.from('chapters').select('*');
+      if (!errChaps && chaps) {
+        const formattedChaps = chaps.map((c: any) => ({
+          id: c.id,
+          subjectId: c.subject_id,
+          name: c.name
+        }));
+        setChapters(formattedChaps);
+        localStorage.setItem('ownskill_chapters', JSON.stringify(formattedChaps));
+      }
+
+      // 3. DPP Questions (with pdfUrl)
+      const { data: qns, error: errQns } = await supabase.from('dpp_questions').select('*').eq('is_deleted', false);
+      if (!errQns && qns) {
+        const formattedQns = qns.map((q: any) => ({
+          id: q.id,
+          chapterId: q.chapter_id,
+          type: q.type,
+          question: q.question,
+          options: q.options,
+          answer: isNaN(Number(q.answer)) ? q.answer : Number(q.answer),
+          explanation: q.explanation,
+          tags: q.tags,
+          pdfUrl: q.pdf_url || undefined
+        }));
+        setDppQuestions(formattedQns);
+        localStorage.setItem('ownskill_questions', JSON.stringify(formattedQns));
+      }
+
+      // 4. Mock Tests
+      const { data: tests, error: errTests } = await supabase.from('mock_tests').select('*');
+      if (!errTests && tests) {
+        const formattedTests = tests.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          duration: t.duration,
+          totalMarks: t.total_marks,
+          isPublished: t.is_published
+        }));
+        setMockTests(formattedTests);
+        localStorage.setItem('ownskill_mocktests', JSON.stringify(formattedTests));
+      }
+
+      // 5. Live Exams (with pdfUrl)
+      const { data: exams, error: errExams } = await supabase.from('live_exams').select('*').eq('is_deleted', false);
+      if (!errExams && exams) {
+        const formattedExams = exams.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          description: e.description || undefined,
+          durationMinutes: e.duration_minutes || 60,
+          isActive: e.is_active || false,
+          pdfUrl: e.pdf_url || undefined,
+          scheduledStart: e.scheduled_start || undefined,
+          status: e.status || 'Draft',
+          subjectId: e.subject_id || undefined,
+          chapterId: e.chapter_id || undefined
+        }));
+        setLiveExams(formattedExams);
+        localStorage.setItem('ownskill_liveexams', JSON.stringify(formattedExams));
+      }
+
+      // 5b. Live Test Questions
+      const { data: ltqs, error: errLtqs } = await supabase.from('live_test_questions').select('*').eq('is_deleted', false);
+      if (!errLtqs && ltqs) {
+        const formattedLtqs = ltqs.map((q: any) => ({
+          id: q.id,
+          examId: q.exam_id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: Number(q.correct_answer),
+          explanation: q.explanation || undefined,
+          marks: q.marks || 4,
+          questionOrder: q.question_order || 0,
+          tags: q.tags || undefined,
+          pdfUrl: q.pdf_url || undefined,
+          isLivePractice: q.is_live_practice || false
+        }));
+        setLiveTestQuestions(formattedLtqs);
+        localStorage.setItem('ownskill_livetestqs', JSON.stringify(formattedLtqs));
+      }
+
+      // 6. Users List
+      const { data: profiles, error: errProfiles } = await supabase.from('user_profiles').select('*');
+      if (!errProfiles && profiles) {
+        const formattedProfiles = profiles.map((p: any) => ({
+          name: p.username,
+          role: 'Student',
+          isBanned: false
+        }));
+        setUsersList(formattedProfiles);
+        localStorage.setItem('ownskill_users', JSON.stringify(formattedProfiles));
+      }
+
+      addSystemLog("[DATABASE] Successfully synchronized workspace databases from cloud container.");
+    } catch (e: any) {
+      console.error("Supabase dynamic synchronizer failure:", e);
+      addSystemLog(`[DATABASE] Sync failure: ${e.message || e}`);
+    }
+  };
+
+  const fetchArchives = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data: softDpps } = await supabase.from('dpp_questions').select('*').eq('is_deleted', true);
+      const { data: softExams } = await supabase.from('live_exams').select('*').eq('is_deleted', true);
+      const { data: softLtqs } = await supabase.from('live_test_questions').select('*').eq('is_deleted', true);
+
+      const { data: hardDpps } = await supabase.from('archive_dpp_questions').select('*');
+      const { data: hardExams } = await supabase.from('archive_live_exams').select('*');
+      const { data: hardLtqs } = await supabase.from('archive_live_test_questions').select('*');
+
+      if (softDpps) {
+        setSoftDeletedDppQuestions(softDpps.map((q: any) => ({
+          id: q.id,
+          chapterId: q.chapter_id,
+          type: q.type,
+          question: q.question,
+          options: q.options,
+          answer: isNaN(Number(q.answer)) ? q.answer : Number(q.answer),
+          explanation: q.explanation,
+          tags: q.tags,
+          pdfUrl: q.pdf_url || undefined
+        })));
+      }
+      if (softExams) {
+        setSoftDeletedLiveExams(softExams.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          description: e.description || undefined,
+          durationMinutes: e.duration_minutes || 60,
+          isActive: e.is_active || false,
+          pdfUrl: e.pdf_url || undefined,
+          scheduledStart: e.scheduled_start || undefined,
+          status: e.status || 'Draft',
+          subjectId: e.subject_id || undefined,
+          chapterId: e.chapter_id || undefined
+        })));
+      }
+      if (softLtqs) {
+        setSoftDeletedLiveTestQuestions(softLtqs.map((q: any) => ({
+          id: q.id,
+          examId: q.exam_id,
+          question: q.question,
+          options: q.options,
+          correctAnswer: isNaN(Number(q.correct_answer)) ? q.correct_answer : Number(q.correct_answer),
+          explanation: q.explanation || undefined,
+          marks: q.marks || 4,
+          questionOrder: q.question_order || 0,
+          tags: q.tags || undefined,
+          pdfUrl: q.pdf_url || undefined,
+          isLivePractice: q.is_live_practice || false
+        })));
+      }
+
+      if (hardDpps) setArchiveDppQuestions(hardDpps);
+      if (hardExams) setArchiveLiveExams(hardExams);
+      if (hardLtqs) setArchiveLiveTestQuestions(hardLtqs);
+    } catch (e: any) {
+      console.error("Failed to fetch archives:", e);
+    }
+  };
+
   // Synchronizes all Syllabus and CMS arrays dynamically from the cloud database
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    // Initial fetch
+    fetchDatabaseData();
+    fetchArchives();
 
-    const fetchDatabaseData = async () => {
-      try {
-        // 1. Subjects
-        const { data: subs, error: errSubs } = await supabase.from('subjects').select('*');
-        if (!errSubs && subs) {
-          setSubjects(subs);
-          localStorage.setItem('ownskill_subjects', JSON.stringify(subs));
-        }
+    // 1. Realtime subscription for instant updates across devices (Web <-> Android)
+    let channel: any;
+    if (isSupabaseConfigured) {
+      channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public' },
+          (payload) => {
+            console.log('Database change received, synchronizing...', payload);
+            fetchDatabaseData();
+            fetchArchives();
+          }
+        )
+        .subscribe();
+    }
 
-        // 2. Chapters
-        const { data: chaps, error: errChaps } = await supabase.from('chapters').select('*');
-        if (!errChaps && chaps) {
-          const formattedChaps = chaps.map((c: any) => ({
-            id: c.id,
-            subjectId: c.subject_id,
-            name: c.name
-          }));
-          setChapters(formattedChaps);
-          localStorage.setItem('ownskill_chapters', JSON.stringify(formattedChaps));
-        }
-
-        // 3. DPP Questions (with pdfUrl)
-        const { data: qns, error: errQns } = await supabase.from('dpp_questions').select('*');
-        if (!errQns && qns) {
-          const formattedQns = qns.map((q: any) => ({
-            id: q.id,
-            chapterId: q.chapter_id,
-            type: q.type,
-            question: q.question,
-            options: q.options,
-            answer: isNaN(Number(q.answer)) ? q.answer : Number(q.answer),
-            explanation: q.explanation,
-            tags: q.tags,
-            pdfUrl: q.pdf_url || undefined
-          }));
-          setDppQuestions(formattedQns);
-          localStorage.setItem('ownskill_questions', JSON.stringify(formattedQns));
-        }
-
-        // 4. Mock Tests
-        const { data: tests, error: errTests } = await supabase.from('mock_tests').select('*');
-        if (!errTests && tests) {
-          const formattedTests = tests.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            duration: t.duration,
-            totalMarks: t.total_marks,
-            isPublished: t.is_published
-          }));
-          setMockTests(formattedTests);
-          localStorage.setItem('ownskill_mocktests', JSON.stringify(formattedTests));
-        }
-
-        // 5. Live Exams (with pdfUrl)
-        const { data: exams, error: errExams } = await supabase.from('live_exams').select('*');
-        if (!errExams && exams) {
-          const formattedExams = exams.map((e: any) => ({
-            id: e.id,
-            title: e.title,
-            description: e.description || undefined,
-            durationMinutes: e.duration_minutes || 60,
-            isActive: e.is_active || false,
-            pdfUrl: e.pdf_url || undefined,
-            scheduledStart: e.scheduled_start || undefined,
-            status: e.status || 'Draft',
-            subjectId: e.subject_id || undefined,
-            chapterId: e.chapter_id || undefined
-          }));
-          setLiveExams(formattedExams);
-          localStorage.setItem('ownskill_liveexams', JSON.stringify(formattedExams));
-        }
-
-        // 5b. Live Test Questions
-        const { data: ltqs, error: errLtqs } = await supabase.from('live_test_questions').select('*');
-        if (!errLtqs && ltqs) {
-          const formattedLtqs = ltqs.map((q: any) => ({
-            id: q.id,
-            examId: q.exam_id,
-            question: q.question,
-            options: q.options,
-            correctAnswer: Number(q.correct_answer),
-            explanation: q.explanation || undefined,
-            marks: q.marks || 4,
-            questionOrder: q.question_order || 0,
-            tags: q.tags || undefined,
-            pdfUrl: q.pdf_url || undefined,
-            isLivePractice: q.is_live_practice || false
-          }));
-          setLiveTestQuestions(formattedLtqs);
-          localStorage.setItem('ownskill_livetestqs', JSON.stringify(formattedLtqs));
-        }
-
-        // 6. Users List
-        const { data: profiles, error: errProfiles } = await supabase.from('user_profiles').select('*');
-        if (!errProfiles && profiles) {
-          const formattedProfiles = profiles.map((p: any) => ({
-            name: p.username,
-            role: 'Student',
-            isBanned: false
-          }));
-          setUsersList(formattedProfiles);
-          localStorage.setItem('ownskill_users', JSON.stringify(formattedProfiles));
-        }
-
-        addSystemLog("[DATABASE] Successfully synchronized workspace databases from cloud container.");
-      } catch (e: any) {
-        console.error("Supabase dynamic synchronizer failure:", e);
-        addSystemLog(`[DATABASE] Sync failure: ${e.message || e}`);
+    // 2. Foreground/Focus refresh for Android WebView
+    // This ensures that when the user switches back to the app, the latest data is shown
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('App foregrounded, synchronizing...');
+        fetchDatabaseData();
+        fetchArchives();
       }
     };
 
-    fetchDatabaseData();
-  }, []); // Run once on mount — fetches all CMS data for both admin and student
+    const handleFocus = () => {
+      console.log('App focused, synchronizing...');
+      fetchDatabaseData();
+      fetchArchives();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []); // Setup on mount — maintains constant sync between admin and student
 
   // State Mutators
   const loginUser = (username: string) => {
@@ -571,10 +743,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       const newState = { ...prev, ...next };
-      
+
       // Sync to database
       syncUserProfile(newState);
-      
+
       return newState;
     });
   };
@@ -618,7 +790,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]
     }));
   };
-  
+
   const clearSystemLogs = () => {
     setLogs([]);
   };
@@ -696,7 +868,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addSubject = async (name: string) => {
     const newId = `s-${Date.now()}`;
     const newSub = { id: newId, name };
-    
+
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('subjects').insert([{ id: newId, name }]);
@@ -736,7 +908,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addChapter = async (subjectId: string, name: string) => {
     const newId = `c-${Date.now()}`;
     const newChap = { id: newId, subjectId, name };
-    
+
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('chapters').insert([{ id: newId, subject_id: subjectId, name }]);
@@ -776,17 +948,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addDppQuestion = async (q: Omit<DppQuestion, 'id'>) => {
     const newId = `q-${Date.now()}`;
     const newQ = { ...q, id: newId };
-    
+
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('dpp_questions').insert([{ 
-          id: newId, 
-          chapter_id: q.chapterId, 
-          type: q.type, 
-          question: q.question, 
-          options: q.options, 
-          answer: q.answer.toString(), 
-          explanation: q.explanation, 
+        const { error } = await supabase.from('dpp_questions').insert([{
+          id: newId,
+          chapter_id: q.chapterId,
+          type: q.type,
+          question: q.question,
+          options: q.options,
+          answer: q.answer.toString(),
+          explanation: q.explanation,
           tags: q.tags || [],
           pdf_url: q.pdfUrl || null,
           is_live_practice: q.isLivePractice || false
@@ -817,7 +989,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (updates.tags !== undefined) payload.tags = updates.tags;
         if (updates.pdfUrl !== undefined) payload.pdf_url = updates.pdfUrl;
         if (updates.isLivePractice !== undefined) payload.is_live_practice = updates.isLivePractice;
-        
+
         const { error } = await supabase.from('dpp_questions').update(payload).eq('id', id);
         if (error) { bridge.showToast(error.message); return; }
       } catch (err: any) { bridge.showToast(err.message || "Failed to update question."); return; }
@@ -829,7 +1001,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteDppQuestion = async (id: string) => {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('dpp_questions').delete().eq('id', id);
+        const { error } = await supabase.from('dpp_questions').update({ is_deleted: true }).eq('id', id);
         if (error) {
           bridge.showToast(error.message);
           return;
@@ -840,21 +1012,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setDppQuestions(prev => prev.filter(q => q.id !== id));
-    addSystemLog(`[DPP CMS] Question ID: ${id} deleted.`);
+    addSystemLog(`[DPP CMS] Question ID: ${id} deleted (soft delete).`);
+    await fetchArchives();
+  };
+
+  const restoreDppQuestion = async (item: any, isHardDeleted: boolean) => {
+    if (isSupabaseConfigured) {
+      try {
+        if (isHardDeleted) {
+          const { error } = await supabase.from('dpp_questions').insert([{
+            id: item.id,
+            chapter_id: item.topic_id,
+            type: item.type,
+            question: item.question,
+            options: item.options,
+            answer: item.answer.toString(),
+            explanation: item.explanation,
+            tags: item.tags || [],
+            is_deleted: false,
+            created_at: item.created_at
+          }]);
+          if (error) { bridge.showToast(error.message); return; }
+          const { error: delErr } = await supabase.from('archive_dpp_questions').delete().eq('archive_id', item.archive_id);
+          if (delErr) { bridge.showToast(delErr.message); return; }
+        } else {
+          const { error } = await supabase.from('dpp_questions').update({ is_deleted: false }).eq('id', item.id);
+          if (error) { bridge.showToast(error.message); return; }
+        }
+      } catch (err: any) {
+        bridge.showToast(err.message || "Failed to restore question.");
+        return;
+      }
+    }
+    await fetchDatabaseData();
+    await fetchArchives();
+    addSystemLog(`[Recycle Bin] Restored DPP Question: ${item.id}`);
   };
 
   const addMockTest = async (test: Omit<MockTest, 'id'>) => {
     const newId = `m-${Date.now()}`;
     const newTest = { ...test, id: newId, isPublished: test.isPublished ?? false };
-    
+
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('mock_tests').insert([{ 
-          id: newId, 
-          title: test.title, 
-          duration: test.duration, 
-          total_marks: test.totalMarks, 
-          is_published: test.isPublished ?? false 
+        const { error } = await supabase.from('mock_tests').insert([{
+          id: newId,
+          title: test.title,
+          duration: test.duration,
+          total_marks: test.totalMarks,
+          is_published: test.isPublished ?? false
         }]);
         if (error) {
           bridge.showToast(error.message);
@@ -872,19 +1078,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addLiveExam = async (exam: Omit<LiveExam, 'id'>) => {
     const newId = `l-${Date.now()}`;
-    const newExam = { 
-      ...exam, 
-      id: newId, 
-      status: exam.status || 'Draft', 
+    const newExam = {
+      ...exam,
+      id: newId,
+      status: exam.status || 'Draft',
       scheduledStart: exam.scheduledStart || undefined,
       subjectId: exam.subjectId || undefined,
       chapterId: exam.chapterId || undefined
     };
-    
+
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('live_exams').insert([{ 
-          id: newId, 
+        const { error } = await supabase.from('live_exams').insert([{
+          id: newId,
           title: exam.title,
           description: exam.description || null,
           duration_minutes: exam.durationMinutes,
@@ -926,11 +1132,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setLiveExams(prev => prev.map(e => {
       if (e.id === id) {
-        return { 
-          ...e, 
-          status, 
+        return {
+          ...e,
+          status,
           isActive: (status === 'Published' || status === 'Live'),
-          scheduledStart: scheduledStart !== undefined ? scheduledStart : e.scheduledStart 
+          scheduledStart: scheduledStart !== undefined ? scheduledStart : e.scheduledStart
         };
       }
       return e;
@@ -938,7 +1144,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const target = liveExams.find(e => e.id === id);
     addSystemLog(`[Live CMS] Exam "${target?.title || id}" status updated to ${status}`);
-    
+
     if (status === 'Published') {
       addAppNotification("🔔 New Live Test Available", `"${target?.title || 'Exam'}" has been published and scheduled for ${scheduledStart ? new Date(scheduledStart).toLocaleString() : 'the scheduled time'}!`);
     }
@@ -1040,13 +1246,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteLiveExam = async (id: string) => {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('live_test_questions').delete().eq('exam_id', id);
-        await supabase.from('live_exams').delete().eq('id', id);
+        await supabase.from('live_test_questions').update({ is_deleted: true }).eq('exam_id', id);
+        await supabase.from('live_exams').update({ is_deleted: true }).eq('id', id);
       } catch (err: any) { bridge.showToast(err.message || "Delete failed."); }
     }
     setLiveExams(prev => prev.filter(e => e.id !== id));
     setLiveTestQuestions(prev => prev.filter(q => q.examId !== id));
-    addSystemLog(`[Live CMS] Deleted Exam: ${id}`);
+    addSystemLog(`[Live CMS] Deleted Exam: ${id} (soft delete).`);
+    await fetchArchives();
+  };
+
+  const restoreLiveExam = async (item: any, isHardDeleted: boolean) => {
+    if (isSupabaseConfigured) {
+      try {
+        if (isHardDeleted) {
+          const { error } = await supabase.from('live_exams').insert([{
+            id: item.id,
+            title: item.title,
+            description: item.description || null,
+            duration_minutes: item.duration_minutes || 60,
+            is_active: item.is_active || false,
+            pdf_url: item.pdf_url || null,
+            scheduled_start: item.scheduled_start || null,
+            status: item.status || 'Draft',
+            subject_id: item.subject_id || null,
+            chapter_id: item.chapter_id || null,
+            is_deleted: false,
+            created_at: item.created_at
+          }]);
+          if (error) { bridge.showToast(error.message); return; }
+          const { error: delErr } = await supabase.from('archive_live_exams').delete().eq('archive_id', item.archive_id);
+          if (delErr) { bridge.showToast(delErr.message); return; }
+        } else {
+          const { error } = await supabase.from('live_exams').update({ is_deleted: false }).eq('id', item.id);
+          if (error) { bridge.showToast(error.message); return; }
+          await supabase.from('live_test_questions').update({ is_deleted: false }).eq('exam_id', item.id).eq('is_deleted', true);
+        }
+      } catch (err: any) {
+        bridge.showToast(err.message || "Failed to restore exam.");
+        return;
+      }
+    }
+    await fetchDatabaseData();
+    await fetchArchives();
+    addSystemLog(`[Recycle Bin] Restored Live Exam: ${item.id}`);
   };
 
   const toggleLiveExamActive = async (id: string) => {
@@ -1103,7 +1346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (updates.tags !== undefined) payload.tags = updates.tags;
         if (updates.pdfUrl !== undefined) payload.pdf_url = updates.pdfUrl;
         if (updates.isLivePractice !== undefined) payload.is_live_practice = updates.isLivePractice;
-        
+
         const { error } = await supabase.from('live_test_questions').update(payload).eq('id', id);
         if (error) { bridge.showToast(error.message); return; }
       } catch (err: any) { bridge.showToast(err.message || "Failed to update question."); return; }
@@ -1114,11 +1357,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteLiveTestQuestion = async (id: string) => {
     if (isSupabaseConfigured) {
-      try { await supabase.from('live_test_questions').delete().eq('id', id); }
+      try { await supabase.from('live_test_questions').update({ is_deleted: true }).eq('id', id); }
       catch (err: any) { bridge.showToast(err.message || "Delete failed."); }
     }
     setLiveTestQuestions(prev => prev.filter(q => q.id !== id));
-    addSystemLog(`[Live CMS] Question deleted: ${id}`);
+    addSystemLog(`[Live CMS] Question deleted: ${id} (soft delete).`);
+    await fetchArchives();
+  };
+
+  const restoreLiveTestQuestion = async (item: any, isHardDeleted: boolean) => {
+    if (isSupabaseConfigured) {
+      try {
+        if (isHardDeleted) {
+          const { error } = await supabase.from('live_test_questions').insert([{
+            id: item.id,
+            exam_id: item.exam_id,
+            type: item.type || 'MCQ',
+            question: item.question,
+            options: item.options,
+            correct_answer: item.correct_answer.toString(),
+            explanation: item.explanation || null,
+            marks: item.marks || 4,
+            question_order: item.question_order || 0,
+            tags: item.tags || [],
+            pdf_url: item.pdf_url || null,
+            is_live_practice: item.is_live_practice || false,
+            is_deleted: false,
+            created_at: item.created_at
+          }]);
+          if (error) { bridge.showToast(error.message); return; }
+          const { error: delErr } = await supabase.from('archive_live_test_questions').delete().eq('archive_id', item.archive_id);
+          if (delErr) { bridge.showToast(delErr.message); return; }
+        } else {
+          const { error } = await supabase.from('live_test_questions').update({ is_deleted: false }).eq('id', item.id);
+          if (error) { bridge.showToast(error.message); return; }
+        }
+      } catch (err: any) {
+        bridge.showToast(err.message || "Failed to restore question.");
+        return;
+      }
+    }
+    await fetchDatabaseData();
+    await fetchArchives();
+    addSystemLog(`[Recycle Bin] Restored Live Question: ${item.id}`);
   };
 
   const updateUserRole = (name: string, role: string) => {
@@ -1163,14 +1444,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       usersList,
       storageFiles,
       logs,
-      
+
+      archiveDppQuestions,
+      archiveLiveExams,
+      archiveLiveTestQuestions,
+      softDeletedDppQuestions,
+      softDeletedLiveExams,
+      softDeletedLiveTestQuestions,
+
+      restoreDppQuestion,
+      restoreLiveExam,
+      restoreLiveTestQuestion,
+      fetchArchives,
+
       loginUser,
       logoutUser,
       updateState,
       addCoinsAndXp,
       toggleTheme,
       setAccentColor,
-      
+
       addAchievement,
       deleteAchievement,
       addCoinTransaction,
@@ -1178,7 +1471,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addPerformanceGraph,
       deletePerformanceGraph,
       initializeStudentData,
-      
+
       addSubject,
       deleteSubject,
       addChapter,

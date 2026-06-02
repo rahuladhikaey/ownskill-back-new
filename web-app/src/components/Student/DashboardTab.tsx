@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { 
+import {
   Target, CheckCircle2, BarChart3, Sparkles, Timer, FlaskConical, BookOpenText,
   ChevronRight, TrendingUp, TrendingDown, Minus, Flame, Trophy, Zap, Clock, Globe
 } from 'lucide-react';
@@ -22,14 +22,14 @@ export function DashboardTab() {
   const totalDpps = state.completedDppChapters?.length || 0;
   const totalTasks = state.tasksCompleted?.length || 0;
   const totalAttempted = totalDpps + totalTasks;
-  
+
   // Only show accuracy if student has actually attempted questions
   const accuracy = totalAttempted > 0 ? Math.min(Math.round((state.xp / Math.max(totalAttempted * 12, 1)) * 100), 100) : 0;
-  
+
   // Only show completion if student has completed DPPs
   const completionTarget = 50;
   const completion = totalDpps > 0 ? Math.min(Math.round((totalDpps / completionTarget) * 100), 100) : 0;
-  
+
   // Only show percentile if student has attempted questions
   const rawPercentile = Math.min(Math.round(50 + (accuracy * 0.3) + (completion * 0.2)), 99);
   const percentile = totalAttempted > 0 ? rawPercentile : 0;
@@ -45,27 +45,27 @@ export function DashboardTab() {
 
   // Performance snapshot cards data - only show if student has done work
   const snapshots = totalAttempted > 0 ? [
-    { 
-      label: 'Accuracy', 
-      value: `${accuracy}%`, 
+    {
+      label: 'Accuracy',
+      value: `${accuracy}%`,
       icon: Target,
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
       borderColor: 'border-blue-500/15',
       iconBg: 'bg-blue-500/15'
     },
-    { 
-      label: 'Completion', 
-      value: `${completion}%`, 
+    {
+      label: 'Completion',
+      value: `${completion}%`,
       icon: CheckCircle2,
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/15',
       iconBg: 'bg-emerald-500/15'
     },
-    { 
-      label: 'Percentile', 
-      value: `${percentile}%`, 
+    {
+      label: 'Percentile',
+      value: `${percentile}%`,
       icon: BarChart3,
       color: 'text-teal-400',
       bgColor: 'bg-teal-500/10',
@@ -76,37 +76,37 @@ export function DashboardTab() {
 
   // Quick action cards
   const quickActions = [
-    { 
-      id: 'dpp', 
-      label: 'Smart DPP', 
-      desc: 'Daily practice problems', 
+    {
+      id: 'dpp',
+      label: 'Smart DPP',
+      desc: 'Daily practice problems',
       icon: Sparkles,
       gradient: 'from-amber-500/20 to-yellow-500/10',
       borderAccent: 'border-amber-500/20',
       iconColor: 'text-amber-400'
     },
-    { 
-      id: 'tests', 
-      label: 'Live Tests', 
-      desc: 'Timed mock exams', 
+    {
+      id: 'tests',
+      label: 'Live Tests',
+      desc: 'Timed mock exams',
       icon: Timer,
       gradient: 'from-blue-500/20 to-cyan-500/10',
       borderAccent: 'border-blue-500/20',
       iconColor: 'text-blue-400'
     },
-    { 
-      id: 'visualizer', 
-      label: 'Formula Lab', 
-      desc: 'Visual equations tool', 
+    {
+      id: 'visualizer',
+      label: 'Formula Lab',
+      desc: 'Visual equations tool',
       icon: FlaskConical,
       gradient: 'from-purple-500/20 to-violet-500/10',
       borderAccent: 'border-purple-500/20',
       iconColor: 'text-purple-400'
     },
-    { 
-      id: 'more', 
-      label: 'Articles', 
-      desc: 'Curated reading', 
+    {
+      id: 'more',
+      label: 'Articles',
+      desc: 'Curated reading',
       icon: BookOpenText,
       gradient: 'from-emerald-500/20 to-green-500/10',
       borderAccent: 'border-emerald-500/20',
@@ -131,7 +131,7 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-5 pb-6 animate-form-fade">
-      
+
       {/* Digital Clock */}
       <div className="glass-panel p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -143,19 +143,19 @@ export function DashboardTab() {
         </div>
         <div className="text-right">
           <div className="text-2xl font-extrabold text-white tracking-wider font-mono">
-            {currentTime.toLocaleTimeString('en-US', { 
-              hour12: false, 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              second: '2-digit' 
+            {currentTime.toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
             })}
           </div>
           <div className="text-[10px] text-slate-400 font-semibold">
-            {currentTime.toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
+            {currentTime.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
             })}
           </div>
         </div>
@@ -170,7 +170,7 @@ export function DashboardTab() {
           </h3>
           <div className="grid grid-cols-3 gap-2.5">
             {snapshots.map((s) => (
-              <div 
+              <div
                 key={s.label}
                 className={`${s.bgColor} border ${s.borderColor} rounded-2xl p-3.5 flex flex-col items-start gap-2.5 relative overflow-hidden`}
               >
@@ -298,9 +298,9 @@ export function DashboardTab() {
           </div>
         )}
       </div>
-      
+
       {/* ═══════ EXTERNAL WEBSITE LINK ═══════ */}
-      <button 
+      <button
         onClick={() => {
           if (window.OwnSkillAndroid && typeof window.OwnSkillAndroid.openUrl === 'function') {
             window.OwnSkillAndroid.openUrl("https://ownskill-back-new.onrender.com");
@@ -321,7 +321,7 @@ export function DashboardTab() {
         </div>
         <ChevronRight className="w-5 h-5 text-emerald-500/70 group-hover:text-emerald-400 transition-colors" />
       </button>
-      
+
     </div>
   );
 }

@@ -15,11 +15,15 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     state, updateState, logs, subjects, chapters, dppQuestions, mockTests, liveExams, liveTestQuestions, usersList, storageFiles,
     addSubject, deleteSubject, addChapter, deleteChapter, addDppQuestion, updateDppQuestion, deleteDppQuestion,
     addMockTest, addLiveExam, deleteLiveExam, toggleLiveExamActive, updateLiveExamStatus, addLiveTestQuestion, updateLiveTestQuestion, deleteLiveTestQuestion,
-    updateUserRole, toggleUserBan, uploadStorageFile, deleteStorageFile, addSystemLog, clearSystemLogs
+    updateUserRole, toggleUserBan, uploadStorageFile, deleteStorageFile, addSystemLog, clearSystemLogs,
+    archiveDppQuestions, archiveLiveExams, archiveLiveTestQuestions,
+    softDeletedDppQuestions, softDeletedLiveExams, softDeletedLiveTestQuestions,
+    restoreDppQuestion, restoreLiveExam, restoreLiveTestQuestion, fetchArchives
   } = useApp();
   const bridge = useAndroidBridge();
 
   const [activeTab, setActiveTab] = useState<string>('metrics');
+  const [recycleSubTab, setRecycleSubTab] = useState<'dpp' | 'live' | 'ltq'>('dpp');
 
   // Input states for CRUD additions
   const [subName, setSubName] = useState('');
@@ -97,6 +101,7 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
     { id: 'alerts', label: '📢 Notifications', icon: Bell },
     { id: 'storage', label: '📂 Cloud Storage', icon: HardDrive },
     { id: 'settings', label: '⚙️ Settings Console', icon: Settings },
+    { id: 'recycle', label: '♻️ Recycle Bin', icon: Trash2 },
   ];
 
   // Helper handles
@@ -322,7 +327,13 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
             return (
               <button
                 key={t.id}
-                onClick={() => { setActiveTab(t.id); bridge.vibrate(10); }}
+                onClick={() => { 
+                  setActiveTab(t.id); 
+                  if (t.id === 'recycle') {
+                    fetchArchives();
+                  }
+                  bridge.vibrate(10); 
+                }}
                 className={`w-full flex flex-col sm:flex-row items-center gap-2 px-3 py-3 rounded-xl transition-all cursor-pointer ${
                   isActive 
                     ? 'bg-accent text-white shadow-glow' 
@@ -1650,6 +1661,304 @@ export function AdminPanel({ onClose }: AdminPanelProps) {
                     <div className="absolute left-1 top-1 w-4 h-4 bg-slate-500 rounded-full transition-transform switch-dot" />
                   </label>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 14: RECYCLE BIN */}
+          {activeTab === 'recycle' && (
+            <div className="space-y-6 animate-form-fade">
+              <div className="glass-panel p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                  <div className="text-left">
+                    <h3 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-1.5">
+                      ♻️ Admin Recycle Bin
+                    </h3>
+                    <p className="text-[10px] text-slate-400">View and restore soft-deleted contents and database-archived items.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      await fetchArchives();
+                      bridge.showToast("Recycle bin refreshed!");
+                      bridge.vibrate(10);
+                    }}
+                    className="text-[10px] font-bold bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 px-3 py-1.5 rounded-xl cursor-pointer active:scale-95 transition-all"
+                  >
+                    Refresh Bin
+                  </button>
+                </div>
+
+                {/* Sub tabs selector */}
+                <div className="flex gap-2 border-b border-slate-900 pb-3">
+                  {(['dpp', 'live', 'ltq'] as const).map((tab) => {
+                    const count = tab === 'dpp' 
+                      ? (softDeletedDppQuestions.length + archiveDppQuestions.length)
+                      : tab === 'live'
+                      ? (softDeletedLiveExams.length + archiveLiveExams.length)
+                      : (softDeletedLiveTestQuestions.length + archiveLiveTestQuestions.length);
+
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => { setRecycleSubTab(tab); bridge.vibrate(10); }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          recycleSubTab === tab
+                            ? 'bg-accent/15 border border-accent/30 text-accent'
+                            : 'bg-slate-950/40 border border-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {tab === 'dpp' ? '📝 DPP Questions' : tab === 'live' ? '🔴 Live Exams' : '📋 Live Questions'}
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-900 text-slate-400 font-extrabold">
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* SUB TAB 1: DPP QUESTIONS */}
+                {recycleSubTab === 'dpp' && (() => {
+                  const combined = [
+                    ...softDeletedDppQuestions.map(q => ({ ...q, isHardDeleted: false, archive_id: undefined as number | undefined, archivedAt: undefined as string | undefined })),
+                    ...archiveDppQuestions.map(q => ({
+                      id: q.id,
+                      chapterId: q.topic_id,
+                      type: q.type,
+                      question: q.question,
+                      options: q.options,
+                      answer: q.answer,
+                      explanation: q.explanation,
+                      tags: q.tags,
+                      archive_id: q.archive_id,
+                      archivedAt: q.archived_at,
+                      isHardDeleted: true
+                    }))
+                  ];
+
+                  return (
+                    <div className="space-y-4">
+                      {combined.length === 0 ? (
+                        <div className="border border-dashed border-slate-800 rounded-xl p-12 text-center text-xs text-slate-500 italic">
+                          No deleted DPP questions found.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                          {combined.map((item, idx) => (
+                            <div key={item.isHardDeleted ? `hard-${item.archive_id}` : `soft-${item.id}`} className="bg-slate-950/40 border border-slate-900 hover:border-slate-800/80 rounded-xl p-4 space-y-3 relative group transition-all animate-form-fade">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[10px] font-extrabold bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-accent">
+                                    Q{idx + 1}
+                                  </span>
+                                  <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                                    {item.type}
+                                  </span>
+                                  {item.isHardDeleted ? (
+                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400" title="Direct DB deletion backup">
+                                      🛡️ Hard Deleted Backup
+                                    </span>
+                                  ) : (
+                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400" title="Soft deleted from Admin Panel">
+                                      ♻️ Soft Deleted
+                                    </span>
+                                  )}
+                                  {item.archivedAt && (
+                                    <span className="text-[8px] text-slate-500">
+                                      Deleted: {new Date(item.archivedAt).toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    await restoreDppQuestion(item, item.isHardDeleted);
+                                    bridge.showToast("DPP Question restored successfully!");
+                                    bridge.vibrate(20);
+                                  }}
+                                  className="text-[9px] font-bold bg-green-500/10 border border-green-500/20 hover:bg-green-500/25 text-green-400 px-3 py-1 rounded-lg active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Restore
+                                </button>
+                              </div>
+                              <p className="text-xs text-slate-300 font-semibold leading-relaxed">{item.question}</p>
+                              {item.options && item.options.length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400">
+                                  {item.options.map((opt, oIdx) => (
+                                    <div key={oIdx} className={`truncate py-1 px-1.5 rounded bg-slate-900/50 border border-slate-900 ${item.answer.toString() === oIdx.toString() ? 'border-green-500/30 text-green-400 font-bold' : ''}`}>
+                                      {String.fromCharCode(65 + oIdx)}. {opt}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* SUB TAB 2: LIVE EXAMS */}
+                {recycleSubTab === 'live' && (() => {
+                  const combined = [
+                    ...softDeletedLiveExams.map(e => ({ ...e, isHardDeleted: false, archive_id: undefined as number | undefined, archivedAt: undefined as string | undefined })),
+                    ...archiveLiveExams.map(e => ({
+                      id: e.id,
+                      title: e.title,
+                      description: e.description,
+                      durationMinutes: e.duration_minutes || 60,
+                      isActive: e.is_active || false,
+                      pdfUrl: e.pdf_url,
+                      scheduledStart: e.scheduled_start,
+                      status: e.status || 'Draft',
+                      subjectId: e.subject_id,
+                      chapterId: e.chapter_id,
+                      archive_id: e.archive_id,
+                      archivedAt: e.archived_at,
+                      isHardDeleted: true
+                    }))
+                  ];
+
+                  return (
+                    <div className="space-y-4">
+                      {combined.length === 0 ? (
+                        <div className="border border-dashed border-slate-800 rounded-xl p-12 text-center text-xs text-slate-500 italic">
+                          No deleted live exams found.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                          {combined.map((item) => (
+                            <div key={item.isHardDeleted ? `hard-${item.archive_id}` : `soft-${item.id}`} className="bg-slate-950/40 border border-slate-900 hover:border-slate-800/80 rounded-xl p-4 space-y-3 relative group transition-all animate-form-fade">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                    {item.isHardDeleted ? (
+                                      <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                                        🛡️ Hard Deleted Backup
+                                      </span>
+                                    ) : (
+                                      <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
+                                        ♻️ Soft Deleted
+                                      </span>
+                                    )}
+                                    <span className="text-[9px] text-slate-500 font-semibold">{item.durationMinutes} min · {item.status}</span>
+                                    {item.archivedAt && (
+                                      <span className="text-[8px] text-slate-500">
+                                        Deleted: {new Date(item.archivedAt).toLocaleString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h4 className="text-xs font-extrabold text-white">{item.title}</h4>
+                                  {item.description && <p className="text-[10px] text-slate-400 mt-0.5">{item.description}</p>}
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    await restoreLiveExam(item, item.isHardDeleted);
+                                    bridge.showToast("Live Exam restored successfully!");
+                                    bridge.vibrate(20);
+                                  }}
+                                  className="text-[9px] font-bold bg-green-500/10 border border-green-500/20 hover:bg-green-500/25 text-green-400 px-3 py-1 rounded-lg active:scale-95 transition-all cursor-pointer shrink-0"
+                                >
+                                  Restore
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* SUB TAB 3: LIVE TEST QUESTIONS */}
+                {recycleSubTab === 'ltq' && (() => {
+                  const combined = [
+                    ...softDeletedLiveTestQuestions.map(q => ({ ...q, isHardDeleted: false, archive_id: undefined as number | undefined, archivedAt: undefined as string | undefined })),
+                    ...archiveLiveTestQuestions.map(q => ({
+                      id: q.id,
+                      examId: q.exam_id,
+                      type: q.type || 'MCQ',
+                      question: q.question,
+                      options: q.options,
+                      correctAnswer: q.correct_answer,
+                      explanation: q.explanation,
+                      marks: q.marks || 4,
+                      questionOrder: q.question_order || 0,
+                      tags: q.tags,
+                      pdfUrl: q.pdf_url,
+                      isLivePractice: q.is_live_practice || false,
+                      archive_id: q.archive_id,
+                      archivedAt: q.archived_at,
+                      isHardDeleted: true
+                    }))
+                  ];
+
+                  return (
+                    <div className="space-y-4">
+                      {combined.length === 0 ? (
+                        <div className="border border-dashed border-slate-800 rounded-xl p-12 text-center text-xs text-slate-500 italic">
+                          No deleted live test questions found.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                          {combined.map((item, idx) => (
+                            <div key={item.isHardDeleted ? `hard-${item.archive_id}` : `soft-${item.id}`} className="bg-slate-950/40 border border-slate-900 hover:border-slate-800/80 rounded-xl p-4 space-y-3 relative group transition-all animate-form-fade">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[10px] font-extrabold bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-accent">
+                                    Q{idx + 1} ({item.marks}M)
+                                  </span>
+                                  <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400">
+                                    {item.type}
+                                  </span>
+                                  {item.isHardDeleted ? (
+                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                                      🛡️ Hard Deleted Backup
+                                    </span>
+                                  ) : (
+                                    <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400">
+                                      ♻️ Soft Deleted
+                                    </span>
+                                  )}
+                                  {item.archivedAt && (
+                                    <span className="text-[8px] text-slate-500">
+                                      Deleted: {new Date(item.archivedAt).toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    await restoreLiveTestQuestion(item, item.isHardDeleted);
+                                    bridge.showToast("Question restored successfully!");
+                                    bridge.vibrate(20);
+                                  }}
+                                  className="text-[9px] font-bold bg-green-500/10 border border-green-500/20 hover:bg-green-500/25 text-green-400 px-3 py-1 rounded-lg active:scale-95 transition-all cursor-pointer"
+                                >
+                                  Restore
+                                </button>
+                              </div>
+                              <p className="text-xs text-slate-300 font-semibold leading-relaxed">{item.question}</p>
+                              {item.options && item.options.length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400">
+                                  {item.options.map((opt, oIdx) => (
+                                    <div key={oIdx} className={`truncate py-1 px-1.5 rounded bg-slate-900/50 border border-slate-900 ${item.correctAnswer.toString() === oIdx.toString() ? 'border-green-500/30 text-green-400 font-bold' : ''}`}>
+                                      {String.fromCharCode(65 + oIdx)}. {opt}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {item.type === 'SAQ' && (
+                                <div className="text-[10px] text-emerald-400 font-bold">
+                                  Correct Answer: {item.correctAnswer}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
               </div>
             </div>
           )}
